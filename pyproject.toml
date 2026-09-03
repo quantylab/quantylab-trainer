@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantylab-trainer"
+version = "2.0.0"
+description = "TIGER ETF RL swing trading trainer"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "joblib",
+    "matplotlib",
+    "SQLAlchemy>=2.0",
+    "requests",
+    "ratelimit",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg2-binary"]
+
+[tool.setuptools.package-dir]
+"quantylab.trainer" = "src"
+
+[tool.setuptools]
+packages = [
+    "quantylab.trainer",
+    "quantylab.trainer.etf_single_swing",
+    "quantylab.trainer.etf_portfolio_swing",
+]

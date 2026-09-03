@@ -1,0 +1,19 @@
+{
+  "dataset": "etf_20260410",
+  "trading_method": "swing",
+  "episodes": 150,
+  "lr_policy": 0.0001,
+  "lr_value": 0.0003,
+  "chunk_years": 1,
+  "val_start": 126199,
+  "data_length": 126713,
+  "base_model": "etf-swing-v5",
+  "drawdown_penalty_scale": 25.0,
+  "drawdown_penalty_threshold": 0.12,
+  "rolling_sharpe_window": 20,
+  "rolling_sharpe_scale": 2.0,
+  "loss_aversion": 1.2,
+  "hold_threshold": 0.15,
+  "gamma": 0.995,
+  "trained_at": "2026-04-21T14:26:44Z"
+}
