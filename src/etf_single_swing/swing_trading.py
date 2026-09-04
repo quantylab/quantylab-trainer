@@ -206,6 +206,7 @@ def build_today_features(
     kiwoom_client: KiwoomRestClient = None,
     api_key: str = None,
     feature_version: str = "1",
+    end_date: str = None,
 ) -> dict:
     """피처 벡터 조회.
 
@@ -252,10 +253,10 @@ def build_today_features(
     scaler = joblib.load(scaler_path)
 
     # 공통 데이터 로드
-    data = load_all_data(etf_codes, start_date, qc=qc)
+    data = load_all_data(etf_codes, start_date, end_date=end_date, qc=qc)
 
     # 당일 시세 주입 (Kiwoom REST)
-    if kiwoom_client:
+    if kiwoom_client and not end_date:
         logger.info("당일 시세 조회 (Kiwoom REST API)")
         _fetch_live_candles(kiwoom_client, etf_codes, data)
     else:
@@ -1163,6 +1164,7 @@ def generate_signals(
     kiwoom_client: KiwoomRestClient = None,
     api_key: str = None,
     feature_version: str = "1",
+    end_date: str = None,
 ) -> list:
     """모델 추론으로 매매 시그널 생성
 
@@ -1182,6 +1184,7 @@ def generate_signals(
         kiwoom_client=kiwoom_client,
         api_key=api_key,
         feature_version=feature_version,
+        end_date=end_date,
     )
 
     if not features_dict:
@@ -1215,6 +1218,7 @@ def run_swing_trading(
     monitor_end: str = "15:20",
     max_order_age_minutes: int = 30,
     max_requotes: int = 20,
+    as_of_date: str = None,
 ):
     """스윙 트레이딩 실행
 
@@ -1232,7 +1236,7 @@ def run_swing_trading(
         max_select: 최대 동시 보유 종목 수
         max_invest: 종목당 최대 투자 금액
     """
-    today = datetime.now().strftime('%Y%m%d')
+    today = as_of_date or datetime.now().strftime('%Y%m%d')
     signal_path = os.path.join(LOG_DIR, f'signals_{today}.csv')
 
     logger.info("=" * 60)
@@ -1277,6 +1281,7 @@ def run_swing_trading(
             model_path=model_path,
             device=device,
             feature_version=feature_version,
+            end_date=as_of_date,
             api_key=api_key,
             prev_weights=prev_weights,
         )
@@ -1746,6 +1751,8 @@ def main():
                         help='내부 API 키 (기본: QUANTYLAB_API_KEY 환경변수)')
     parser.add_argument('--feature-version', type=str, default="1",
                         help='피처 벡터 버전 (기본: 1)')
+    parser.add_argument('--as-of-date', type=str, default=None,
+                        help='과거 기준일(YYYYMMDD) 시그널 생성. 주문 실행과 함께 사용하지 마세요.')
 
     args = parser.parse_args()
     if args.price_band_pct < 0 or args.price_band_pct > 0.1:
@@ -1756,6 +1763,11 @@ def main():
         parser.error('--max-order-minutes는 0 이상이어야 합니다.')
     if args.max_requotes < 0:
         parser.error('--max-requotes는 0 이상이어야 합니다.')
+    if args.as_of_date is not None:
+        try:
+            datetime.strptime(args.as_of_date, '%Y%m%d')
+        except ValueError:
+            parser.error('--as-of-date는 YYYYMMDD 형식이어야 합니다.')
     try:
         monitor_hour, monitor_minute = map(int, args.monitor_end.split(':'))
         if not (0 <= monitor_hour <= 23 and 0 <= monitor_minute <= 59):
@@ -1835,6 +1847,7 @@ def main():
         monitor_end=args.monitor_end,
         max_order_age_minutes=args.max_order_minutes,
         max_requotes=args.max_requotes,
+        as_of_date=args.as_of_date,
     )
 
 
