@@ -30,4 +30,5 @@ packages = [
     "quantylab.trainer",
     "quantylab.trainer.etf_single_swing",
     "quantylab.trainer.etf_portfolio_swing",
+    "quantylab.trainer.stock_portfolio_swing",
 ]
