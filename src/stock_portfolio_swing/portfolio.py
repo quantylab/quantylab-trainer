@@ -179,7 +179,18 @@ def backtest_portfolio(
 
 def save_model(model, path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    joblib.dump(model, path, compress=3)
+    # HistGradientBoostingRegressor keeps a NumPy Generator used only during
+    # fitting.  A model trained with NumPy 2.x can otherwise fail to unpickle
+    # on the NumPy 1.26 runtime used by the Prefect worker.  Prediction does
+    # not need this state, so omit it from the portable artifact.
+    feature_subsample_rng = getattr(model, "_feature_subsample_rng", None)
+    if feature_subsample_rng is not None:
+        model._feature_subsample_rng = None
+    try:
+        joblib.dump(model, path, compress=3)
+    finally:
+        if feature_subsample_rng is not None:
+            model._feature_subsample_rng = feature_subsample_rng
 
 
 def load_model(path: str):
