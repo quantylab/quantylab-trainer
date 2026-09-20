@@ -52,6 +52,17 @@ def _env(frame: StockPortfolioFrame, end_date: str, *, oos_start: str | None = N
     )
 
 
+def _jsonable(value):
+    """Convert numpy scalar/container values produced by the environment."""
+    if hasattr(value, "item"):
+        return value.item()
+    if isinstance(value, dict):
+        return {key: _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Cash-aware stock portfolio PPO training")
     p.add_argument("--base-path", default="/home/quantylab/quantylab-trainer")
@@ -70,6 +81,7 @@ def main() -> None:
     p.add_argument("--n-heads", type=int, default=4)
     p.add_argument("--device", default="cuda")
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--resume-checkpoint", default=None, help="검증만 수행할 기존 policy_best.pt 경로")
     args = p.parse_args()
 
     np.random.seed(args.seed)
@@ -85,16 +97,24 @@ def main() -> None:
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(args.base_path, "output", "stock_portfolio_swing", run_id)
     log_dir = os.path.join(args.base_path, "logs", "stock_portfolio_swing", run_id)
-    trainer = PortfolioPPOTrainer(
-        train_env, agent, num_episodes=args.episodes, update_interval=args.update_interval,
-        output_dir=output_dir, log_dir=log_dir,
-    )
-    trainer.train()
+    if args.resume_checkpoint:
+        agent.load(args.resume_checkpoint)
+        os.makedirs(output_dir, exist_ok=True)
+        shutil.copy2(args.resume_checkpoint, os.path.join(output_dir, "policy_best.pt"))
+        shutil.copy2(args.resume_checkpoint, os.path.join(output_dir, "policy_final.pt"))
+    else:
+        trainer = PortfolioPPOTrainer(
+            train_env, agent, num_episodes=args.episodes, update_interval=args.update_interval,
+            output_dir=output_dir, log_dir=log_dir,
+        )
+        trainer.train()
 
     # Select the best train checkpoint, then evaluate sequential validation and locked periods.
     agent.load(os.path.join(output_dir, "policy_best.pt"))
     validation, _ = run_backtest(_env(frame, args.validation_end_date, oos_start=args.validation_start_date, lookback=args.lookback), agent)
     locked, _ = run_backtest(_env(frame, args.locked_end_date, oos_start=args.locked_start_date, lookback=args.lookback), agent)
+    validation = _jsonable(validation)
+    locked = _jsonable(locked)
     print("validation", json.dumps(validation, ensure_ascii=False))
     print("locked", json.dumps(locked, ensure_ascii=False))
 
